@@ -1,0 +1,47 @@
+# Local credentials and browser sessions
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+storage-state*.json
+storageState*.json
+auth-state*.json
+cookies*.json
+
+# Dependencies and generated builds
+node_modules/
+.venv/
+venv/
+dist/
+build/
+*.egg-info/
+*.tsbuildinfo
+
+# Runtime data, databases, and local acceptance artifacts
+data/
+*.db
+*.db-*
+*.sqlite
+*.sqlite3
+*.sqlite-*
+test-results/
+playwright-report/
+blob-report/
+runtime/recorder/evidence/*.json
+runtime/recorder/evidence/*.png
+*.log
+
+# Tool caches
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+.coverage.*
+htmlcov/
+.DS_Store
+Thumbs.db

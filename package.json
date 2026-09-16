@@ -1,0 +1,28 @@
+{
+  "name": "e2e-test-svc",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=24.0.0"
+  },
+  "scripts": {
+    "dev": "uv run uvicorn app.main:app --host 127.0.0.1 --port 4100 --reload --no-access-log",
+    "start": "uv run uvicorn app.main:app --host 127.0.0.1 --port 4100 --no-access-log",
+    "build": "tsc --noEmit",
+    "test": "tsx --test tests/*.test.ts",
+    "migrate": "uv run python -m app.migrations",
+    "openapi": "uv run python scripts/openapi.py"
+  },
+  "dependencies": {
+    "@babel/parser": "8.0.5",
+    "@playwright/test": "1.63.0",
+    "ws": "8.21.3"
+  },
+  "devDependencies": {
+    "@types/node": "22.20.2",
+    "@types/ws": "8.18.1",
+    "tsx": "4.23.13",
+    "typescript": "7.0.2"
+  }
+}
