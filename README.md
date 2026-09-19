@@ -1,14 +1,48 @@
-# Web 业务流程自动化测试后端
+# Flowtest
 
-Python + FastAPI + PostgreSQL 管理账号、项目、不可变场景版本、环境快照与持续运行记录。独立 Docker 容器复用 Playwright Test、codegen Inspector 和 noVNC，导入代码不会在 API 进程执行。前端项目独立，本目录不包含桌面客户端，也不部署被测业务应用。
+**把浏览器操作变成可重跑的业务测试，让每次结果都有源码、断言和 Trace 可查。**
 
-前端仓库：[e2e-test-fronted](https://github.com/ShiqinGuo/e2e-test-fronted)。
+Self-hosted Playwright workflow testing with browser recording, immutable run snapshots, and traceable evidence.
 
-## 本地启动（Windows / Linux）
+[简体中文](README.md) · [English](README.en.md)
 
-依赖：Python 3.12+、uv、Node 24+、npm、Docker Linux engine。当前锁文件在 Python 3.13、Node 24 上验证。
+[![MIT](https://img.shields.io/badge/license-MIT-6569cb)](LICENSE)
+[![Playwright](https://img.shields.io/badge/runner-Playwright-6569cb)](docs/runner.md)
+[![Self hosted](https://img.shields.io/badge/deployment-self--hosted-6569cb)](docs/self-hosting.md)
 
-```powershell
+[开始使用](#quick-start) · [Web 工作台](https://github.com/ShiqinGuo/e2e-test-fronted) · [技术架构](#architecture) · [验证范围](#verification) · [反馈问题](https://github.com/ShiqinGuo/e2e-test-svc/issues)
+
+适合需要反复验证 Web 业务流程的开发者和测试人员：录制一次浏览器操作，或导入已有 Playwright Test，保存场景版本，再针对指定环境执行并追查失败。无需付费模型账户，也可以导入人或 AI 编写的测试源码。
+
+![从浏览器录制到固定快照重跑，再保留首次失败和重试证据的 Flowtest 功能动画](docs/media/flowtest.gif)
+
+*程序绘制的功能演绎，使用示例数据，不是实际界面录屏。查看 [静态画面](docs/media/flowtest-poster.png) 或 [动画说明与源码](docs/media/README.md)。*
+
+## 为什么需要 Flowtest
+
+- **重跑有明确上下文。** 历史重跑沿用当时的源码版本和环境快照；今天改了场景或环境，也不会改写昨天的记录。
+- **通过与验证分开看。** 只完成点击不等于验证业务；没有真实断言时保留 `unverified`，重试通过仍标记 `flaky`。
+- **从结论追到证据。** 沿场景、固定版本、测试和执行尝试查看期望/实际值、日志、截图和私有 Trace；首次失败不会被覆盖。
+
+## 两个仓库，一个产品
+
+本仓库提供后端及浏览器运行时，完整交互体验需要前端工作台。Flowtest 连接已经可访问的被测网站，不负责部署你的业务应用。
+
+| 仓库 | 负责什么 |
+| --- | --- |
+| [e2e-test-svc](https://github.com/ShiqinGuo/e2e-test-svc) | FastAPI 控制服务、PostgreSQL、Playwright 执行与录制容器 |
+| [e2e-test-fronted](https://github.com/ShiqinGuo/e2e-test-fronted) | React Web 工作台：编辑场景、管理环境、查看运行和证据 |
+
+<a id="quick-start"></a>
+## 开始使用
+
+### 1. 启动后端与浏览器运行时
+
+需要 **Python 3.12+、uv、Node.js 24+、npm、Docker Linux engine 和 Git**。Windows 使用 Docker Desktop 的 Linux containers。当前锁文件的已有验收环境为 Python 3.13、Node.js 24。
+
+```sh
+git clone https://github.com/ShiqinGuo/e2e-test-svc.git
+cd e2e-test-svc
 uv sync --frozen
 npm ci
 uv run python scripts/bootstrap.py
@@ -19,58 +53,60 @@ docker build -f runtime/recorder/Dockerfile -t e2e-recorder:1.63.0 .
 uv run uvicorn app.main:app --host 127.0.0.1 --port 4100 --no-access-log
 ```
 
-`bootstrap.py` 只创建尚不存在的 `.env` 和 `data/postgres.password`，密码不会输出。Compose 项目名 `e2e-test-platform`，独立 PostgreSQL 18.6 容器、卷和本机端口 55432，不使用其他项目的数据库。迁移由 Alembic 管理，不在服务启动时无条件建表。
+保持终端运行。[健康检查](http://localhost:4100/api/health) 只确认 API 存活；首次构建浏览器镜像需要下载依赖。`bootstrap.py` 生成本地配置；数据库使用独立端口 `55432`。运行单个 Uvicorn worker，Windows 不加 `--reload`。
 
-后端 [health](http://localhost:4100/api/health)、[OpenAPI](http://localhost:4100/api/openapi.json)、[接口文档](docs/api-contract.md)。开发前端将 `/api` 同源代理到4100并开启 WebSocket，允许 `localhost:5173` 与 `127.0.0.1:5173` 的 Origin。账号通过前端注册，服务不预置共享管理员或演示登录。
+### 2. 启动 Web 工作台
 
-请运行单个 Uvicorn worker；服务持有 PostgreSQL advisory lock 阻止多个编排进程竞争。Windows 上运行器需要支持 subprocess 的事件循环，推荐上述不带 `--reload` 的启动方式。修改后端后受控重启即可，账号与资源保留。中断的活动运行明确标记 error，不会补写成功；遗留运行容器按此数据库的运行 ID 清理。
+另开终端，在存放项目的目录执行：
 
-## 场景闭环
-
-1. 注册并创建项目、业务测试组、场景和测试环境。一个环境可包含多个网站、API 基址、角色会话、公用与秘密变量、API 数据准备及清理。
-2. 在 Web 工作台开始录制，直接操作远程 Chromium；Inspector 的可见、文本、值断言点选由上游 Playwright 实现。停止并保存生成不可变版本。也可导入人或 AI 编写的 Playwright Test TypeScript，无需付费模型账户。
-3. 运行场景或组。创建时固化版本、模块和环境；运行中事件、步骤、断言期望/实际、重试、日志、截图与 Trace 持续记录。`checks` 是可读说明，是否执行了断言以真实 reporter 事件为准。
-4. 历史“重新执行”调用 `/runs/:runId/rerun`，复制原始快照并创建独立记录；使用当前环境由普通新建运行入口明确发起。
-
-可复用流程使用版本内 `modules`（如 `checkout.ts`），场景通过 `./modules/checkout` 引用。动态数据使用 `platform.get/set` 和 API action `capture`。完整例子见 [运行说明](docs/runner.md)。数据库校验当前优先 API，未接多数据库直连适配。
-
-最小CLI入口：`uv run python scripts/cli.py --project PROJECT_ID --scenario SCENARIO_ID --environment ENVIRONMENT_ID`，按交互提示登录；CI可以用受限本地 `--cookie-file PATH`，文件中保存会话Cookie值，凭据不放命令参数。`--rerun RUN_ID` 复用原快照。CLI仅在passed、verified且无flaky时返回0，未验证/跳过/失败不会默默通过CI。
-
-## 验证
-
-```powershell
-uv run pytest -q
-uv run ruff check app migrations scripts tests/test_api.py
-npm run build
-uv run python scripts/openapi.py --check
-node --import tsx --test tests/recorder.test.ts
-$env:E2E_RUN_DOCKER_TESTS='1'
-node --import tsx --test tests/runner.integration.test.ts
-$env:RUN_DOCKER_TESTS='1'
-node --import tsx --test tests/recorder.integration.test.ts
+```sh
+git clone https://github.com/ShiqinGuo/e2e-test-fronted.git
+cd e2e-test-fronted
+npm ci
+npm run dev
 ```
 
-API 测试在当前 PostgreSQL 里建立并清理独立 `test_<uuid>` schema，真实验证迁移、会话、项目权限、快照、工件和契约，不以 SQLite 替代 PostgreSQL。测试账户、运行和浏览器使用技术夹具，尚未接入首个真实业务网站。
+打开 [http://127.0.0.1:5173](http://127.0.0.1:5173)，注册自己的账号。前端代理 `/api` HTTP 与 WebSocket 到 `localhost:4100`，没有共享演示账号。
 
-共享技术夹具启动：
+### 3. 完成第一条业务测试
 
-```powershell
-docker run -d --name e2e-demo-fixture --label e2e.fixture=shared -p 127.0.0.1:18080:8080 -p 127.0.0.1:18081:8081 --entrypoint node e2e-runner:1.63.0 /opt/runner/fixture-server.mjs
-uv run python scripts/acceptance.py
-```
+创建项目与环境 → 填写浏览器容器可访问的网站地址 → 创建测试组和场景 → 录制操作与断言，或导入 Playwright Test → 保存版本并运行 → 查看断言和 Trace。
 
-已有同名夹具时不用重复创建。用户浏览 `http://localhost:18080/`；worker 网站与API填写 `http://host.docker.internal:18080/`，18081为环境B。Linux Docker需把主机可达地址或夹具所在内网地址配置为目标；`host.docker.internal`在本机Docker Desktop已验证。
+还没有被测网站？使用 [内置订单技术夹具](docs/development.md#验证) 完成一次本地读写。它需要启动单独的夹具容器；不是托管演示，也不是免配置的一键体验。Docker Desktop 中容器访问本机服务使用 `host.docker.internal`，Linux 需配置实际可达地址。
 
-技术夹具 Order 输入与 Submit order 按钮会创建真实内存订单，页面显示订单 ID，`GET /orders/:id` 查询、`DELETE /orders/:id` 清理。数据只供技术验收，重启夹具清空。`scripts/acceptance.py` 通过真实 API 创建隔离账号，验证 UI/API 同实体、数据准备清理、历史快照重跑、切换环境、私有工件和授权录制 WebSocket。凭据不写进验收报告。
+## 核心能力
 
-## 自托管和证据边界
+| 任务 | Flowtest 如何支持 |
+| --- | --- |
+| 创建测试 | 官方 Playwright codegen / Inspector 远程录制，或导入 TypeScript 测试 |
+| 维护流程 | 新增不可变版本、复用版本内模块、代码编辑与检查点辅助 |
+| 准备环境 | 命名网站与 API、角色会话、变量、API setup / cleanup 与动态数据传递 |
+| 执行与重跑 | 单场景或测试组、容器内运行、固化源码和环境、取消与历史快照重跑 |
+| 定位问题 | 逐尝试事件、断言、日志、截图和官方 Trace Viewer，工件按项目授权 |
+| 接入脚本 | CLI 仅在 passed、verified 且无 flaky 时返回 0；见 [开发与运行指南](docs/development.md) |
 
-见 [自托管配置](docs/self-hosting.md)、[API 与权限验收](docs/acceptance.md)、[录制适配](docs/recorder.md)。实际通过项和未验证边界以这些文档及验收产物为准，单测或容器小验证不是完整前端 UI 验收。
+<a id="architecture"></a>
+## 技术架构
 
-Git 提交标识源码版本；本地 `data/deployment-snapshot.json` 记录实际服务的 API PID、核心源文件 SHA256 和镜像 ID，两者分别用于源码追踪和本机运行核验，均不能单独证明远端部署。更新服务后可用 `uv run python scripts/deployment_snapshot.py --pid ACTUAL_UVICORN_PID` 刷新运行快照。
+![Flowtest 架构：Web 工作台、FastAPI、PostgreSQL、Node 控制器与独立 Playwright 容器](docs/media/architecture.svg)
 
-本地凭据、`data/`、数据库、日志和验收截图/JSON 不提交到 Git。`runtime/recorder/evidence/` 中保留的两份 TypeScript 是录制绑定回归测试的固定输入；同目录截图与 JSON 由对应验收脚本在本地生成。
+FastAPI 拥有账号、项目权限、版本和运行记录；PostgreSQL 保存平台状态，工件保存在宿主的私有数据目录。受信任的 Node 控制器负责启动独立 Docker 运行器和录制器，导入的场景代码不会在 API 进程内执行。图中 PostgreSQL 是平台数据库，不表示支持直连被测业务数据库。组件与源码对应见 [架构说明](docs/architecture.md)。
 
-`data/`、`.env`、PostgreSQL 数据卷和加密密钥需要持久保存；环境凭据用 Fernet 加密，密钥保留在 API 宿主，运行器只收到该次执行需要的快照。工件为项目私有，会脱敏已知秘密和认证字段；页面截图中的任意敏感文字没有通用自动识别能力。录制凭据应预先放入秘密变量或角色会话；未知秘密不会凭空获得变量绑定。
+<a id="verification"></a>
+## 当前验证到哪里
 
-复用组件采用各自开源许可证；未复制 WrightTest 受限代码。认证源自 [FastAPI Users](https://fastapi-users.github.io/fastapi-users/latest/configuration/authentication/strategies/database/)，浏览器与报告使用 [Playwright](https://playwright.dev/docs/docker)，桌面传输使用 [noVNC](https://github.com/novnc/noVNC)。
+已有 **2026-09-13 本地技术夹具验收记录**：真实 PostgreSQL API、Docker Chromium、远程录制、Web 工作台、分组执行、快照重跑、失败/重试/跳过/未验证和 Trace。这些是历史验收证据，不是所有环境的兼容性保证，也不是本次文档发布重新运行了全部集成验收。
+
+目前尚未接入首个真实业务网站；远端 TLS / 跨主机部署、长期运行与备份恢复仍待验证。初版是项目单 owner 模式，不包含团队成员管理、分布式执行队列或多数据库直连校验。
+
+[后端验证证据](docs/acceptance.md) · [前端验证索引](https://github.com/ShiqinGuo/e2e-test-fronted/blob/main/docs/redesign-verification.md) · [本次文档发布检查](docs/publishing-verification.md)
+
+## 深入文档与贡献
+
+[完整开发指南](docs/development.md) · [API 契约](docs/api-contract.md) · [运行器](docs/runner.md) · [录制器](docs/recorder.md) · [自托管](docs/self-hosting.md)
+
+欢迎在 Issues 提交复现步骤、预期/实际结果和脱敏证据。保留首次失败与重试记录；测试和验收命令见开发指南。
+
+## License
+
+Flowtest 自有代码采用 [MIT](LICENSE)。Playwright、FastAPI Users、noVNC 等依赖保留各自许可；前端复用组件的来源和许可见 [第三方 UI 说明](https://github.com/ShiqinGuo/e2e-test-fronted/blob/main/docs/third-party-ui.md)。

@@ -45,3 +45,4 @@ __pycache__/
 htmlcov/
 .DS_Store
 Thumbs.db
+.media-venv/

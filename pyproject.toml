@@ -1,7 +1,9 @@
 [project]
 name = "e2e-test-svc"
 version = "0.1.0"
-description = "Private Web business workflow testing service"
+description = "Self-hosted Playwright workflow testing with immutable snapshots and traceable evidence"
+license = "MIT"
+license-files = ["LICENSE"]
 requires-python = ">=3.12"
 dependencies = [
   "fastapi>=0.135,<1", "uvicorn[standard]>=0.41,<1",
