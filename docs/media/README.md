@@ -1,20 +1,20 @@
-# Flowtest presentation assets
+# 展示素材
 
-`flowtest.gif` is a programmatically drawn concept demonstration, not a product screen recording or proof of execution. It contains synthetic order data and no account, application or browser-session data.
+- 动画：[中文](flowtest-zh-CN.gif) · [English](flowtest-en.gif)
+- 静态图：[中文](flowtest-zh-CN-poster.png) · [English](flowtest-en-poster.png)
+- 架构图：[中文](architecture.svg) · [English](architecture.en.svg)
+- [架构与源码对应](../architecture.md)
 
-The story is specific to Flowtest: capture actions and a real assertion; freeze source plus environment for a historical rerun; retain the first failed attempt even after a successful retry. Indigo represents evidence and stable identity, graphite supports readable source and state, green is reserved for a passed assertion, and amber keeps flaky outcomes visible. Shallow depth and restrained spring motion make the flow tangible without a fictional dashboard.
+动画围绕录制与断言、固定版本和环境快照、保留首次失败三个场景展开。浅立体模块使用靛蓝表达流程与证据，绿色表示断言通过，琥珀色保留重试后通过的状态。画面使用示例数据。
 
-- `flowtest-poster.png`: static alternative for readers who prefer no motion.
-- `architecture.svg`: actual component relationships, with source mapping in `../architecture.md`.
-- `render.py`: animation source, maintained in the backend repository.
+## 重新生成
 
-Regenerate from the backend root in a separate environment (not needed to run Flowtest):
+安装 `requirements.txt` 中的 Pillow，在仓库根目录执行：
 
 ```sh
-python -m venv .media-venv
-# Activate the environment using your shell's normal activation command.
-python -m pip install Pillow==12.1.0
-python docs/media/render.py
+python docs/media/render.py             # 中英文两版
+python docs/media/render.py --lang zh-CN
+python docs/media/render.py --lang en
 ```
 
-The renderer uses installed fonts only. Set `FLOWTEST_MEDIA_FONT` to a TrueType font path on other systems. It renders at 2x resolution and downsamples to 1120 x 640, uses a shared palette, and retains the final evidence frame before looping. Font metrics may vary by platform. No font files are distributed.
+脚本使用本机字体，不分发字体文件。中文默认使用 Windows 微软雅黑；其他系统可通过 `FLOWTEST_MEDIA_FONT` 指定支持中文的字体路径。输出为 1120 × 640，采用二倍采样和统一调色板。

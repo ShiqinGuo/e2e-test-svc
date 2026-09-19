@@ -2,8 +2,6 @@
 
 **把浏览器操作变成可重跑的业务测试，让每次结果都有源码、断言和 Trace 可查。**
 
-Self-hosted Playwright workflow testing with browser recording, immutable run snapshots, and traceable evidence.
-
 [简体中文](README.md) · [English](README.en.md)
 
 [![MIT](https://img.shields.io/badge/license-MIT-6569cb)](LICENSE)
@@ -14,9 +12,9 @@ Self-hosted Playwright workflow testing with browser recording, immutable run sn
 
 适合需要反复验证 Web 业务流程的开发者和测试人员：录制一次浏览器操作，或导入已有 Playwright Test，保存场景版本，再针对指定环境执行并追查失败。无需付费模型账户，也可以导入人或 AI 编写的测试源码。
 
-![从浏览器录制到固定快照重跑，再保留首次失败和重试证据的 Flowtest 功能动画](docs/media/flowtest.gif)
+![从浏览器录制到固定快照重跑，再保留首次失败和重试证据的 Flowtest 功能动画](docs/media/flowtest-zh-CN.gif)
 
-*程序绘制的功能演绎，使用示例数据，不是实际界面录屏。查看 [静态画面](docs/media/flowtest-poster.png) 或 [动画说明与源码](docs/media/README.md)。*
+[静态图](docs/media/flowtest-zh-CN-poster.png) · [动画源码](docs/media/README.md)
 
 ## 为什么需要 Flowtest
 
@@ -38,7 +36,7 @@ Self-hosted Playwright workflow testing with browser recording, immutable run sn
 
 ### 1. 启动后端与浏览器运行时
 
-需要 **Python 3.12+、uv、Node.js 24+、npm、Docker Linux engine 和 Git**。Windows 使用 Docker Desktop 的 Linux containers。当前锁文件的已有验收环境为 Python 3.13、Node.js 24。
+需要 **Python 3.12+、uv、Node.js 24+、npm、Docker Linux engine 和 Git**。Windows 使用 Docker Desktop 的 Linux containers。
 
 ```sh
 git clone https://github.com/ShiqinGuo/e2e-test-svc.git
@@ -53,7 +51,7 @@ docker build -f runtime/recorder/Dockerfile -t e2e-recorder:1.63.0 .
 uv run uvicorn app.main:app --host 127.0.0.1 --port 4100 --no-access-log
 ```
 
-保持终端运行。[健康检查](http://localhost:4100/api/health) 只确认 API 存活；首次构建浏览器镜像需要下载依赖。`bootstrap.py` 生成本地配置；数据库使用独立端口 `55432`。运行单个 Uvicorn worker，Windows 不加 `--reload`。
+保持终端运行，可访问 [健康检查](http://localhost:4100/api/health)。`bootstrap.py` 生成本地配置，数据库端口为 `55432`。使用单个 Uvicorn worker，Windows 不加 `--reload`。
 
 ### 2. 启动 Web 工作台
 
@@ -66,13 +64,13 @@ npm ci
 npm run dev
 ```
 
-打开 [http://127.0.0.1:5173](http://127.0.0.1:5173)，注册自己的账号。前端代理 `/api` HTTP 与 WebSocket 到 `localhost:4100`，没有共享演示账号。
+打开 [http://127.0.0.1:5173](http://127.0.0.1:5173)，注册自己的账号。前端代理 `/api` HTTP 与 WebSocket 到 `localhost:4100`。
 
 ### 3. 完成第一条业务测试
 
 创建项目与环境 → 填写浏览器容器可访问的网站地址 → 创建测试组和场景 → 录制操作与断言，或导入 Playwright Test → 保存版本并运行 → 查看断言和 Trace。
 
-还没有被测网站？使用 [内置订单技术夹具](docs/development.md#验证) 完成一次本地读写。它需要启动单独的夹具容器；不是托管演示，也不是免配置的一键体验。Docker Desktop 中容器访问本机服务使用 `host.docker.internal`，Linux 需配置实际可达地址。
+还没有被测网站？启动 [内置订单示例](docs/development.md#验证)，完成一次本地读写。Docker Desktop 中容器访问本机服务使用 `host.docker.internal`，Linux 需配置实际可达地址。
 
 ## 核心能力
 
@@ -90,16 +88,14 @@ npm run dev
 
 ![Flowtest 架构：Web 工作台、FastAPI、PostgreSQL、Node 控制器与独立 Playwright 容器](docs/media/architecture.svg)
 
-FastAPI 拥有账号、项目权限、版本和运行记录；PostgreSQL 保存平台状态，工件保存在宿主的私有数据目录。受信任的 Node 控制器负责启动独立 Docker 运行器和录制器，导入的场景代码不会在 API 进程内执行。图中 PostgreSQL 是平台数据库，不表示支持直连被测业务数据库。组件与源码对应见 [架构说明](docs/architecture.md)。
+FastAPI 拥有账号、项目权限、版本和运行记录；PostgreSQL 保存平台状态，工件保存在宿主的私有数据目录。受信任的 Node 控制器负责启动独立 Docker 运行器和录制器，导入的场景代码不会在 API 进程内执行。组件与源码对应见 [架构说明](docs/architecture.md)。
 
 <a id="verification"></a>
-## 当前验证到哪里
+## 当前范围与验证
 
-已有 **2026-09-13 本地技术夹具验收记录**：真实 PostgreSQL API、Docker Chromium、远程录制、Web 工作台、分组执行、快照重跑、失败/重试/跳过/未验证和 Trace。这些是历史验收证据，不是所有环境的兼容性保证，也不是本次文档发布重新运行了全部集成验收。
+支持项目单 owner、容器执行与录制、单场景和分组测试。团队协作、分布式队列和多数据库直连尚未提供。
 
-目前尚未接入首个真实业务网站；远端 TLS / 跨主机部署、长期运行与备份恢复仍待验证。初版是项目单 owner 模式，不包含团队成员管理、分布式执行队列或多数据库直连校验。
-
-[后端验证证据](docs/acceptance.md) · [前端验证索引](https://github.com/ShiqinGuo/e2e-test-fronted/blob/main/docs/redesign-verification.md) · [本次文档发布检查](docs/publishing-verification.md)
+本地验收覆盖 PostgreSQL、Docker Chromium、Web 录制、快照重跑及运行证据，详细结果见 [后端验收](docs/acceptance.md) 和 [前端验收](https://github.com/ShiqinGuo/e2e-test-fronted/blob/main/docs/redesign-verification.md)。
 
 ## 深入文档与贡献
 

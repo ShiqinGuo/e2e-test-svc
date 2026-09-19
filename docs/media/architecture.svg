@@ -1,69 +1,70 @@
+<?xml version='1.0' encoding='utf-8'?>
 <svg xmlns="http://www.w3.org/2000/svg" width="1120" height="800" viewBox="0 0 1120 800" role="img" aria-labelledby="title desc">
-<title id="title">Flowtest technical architecture</title>
+<title id="title">Flowtest 技术架构</title>
 <desc id="desc">React workbench connects to FastAPI with cookie-authorized HTTP and WebSocket. FastAPI stores platform state in PostgreSQL and private artifacts on disk. A trusted Node controller launches isolated Playwright recorder and runner containers, which access configured target websites and APIs.</desc>
-<defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10Z" fill="#777cb3"/></marker></defs>
-<rect width="1120" height="800" rx="20" fill="#f6f6fb"/>
-<g font-family="Segoe UI,Arial,sans-serif" fill="#30364c">
-<text x="40" y="51" font-size="28" font-weight="700">Flowtest / from source to evidence</text>
-<text x="40" y="81" font-size="16" fill="#72798d">Control state, browser execution and evidence have separate owners.</text>
-<rect x="40" y="136" width="300" height="120" rx="15" fill="#dddfea"/>
-<rect x="40" y="130" width="300" height="120" rx="15" fill="#ffffff" stroke="#d7daea"/>
-<text x="60" y="164" font-size="20" fill="#30364c" font-weight="700">Web workbench</text>
+<defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10Z" fill="#777cb3" /></marker></defs>
+<rect width="1120" height="800" rx="20" fill="#f6f6fb" />
+<g font-family="Microsoft YaHei, Segoe UI, Arial, sans-serif" fill="#30364c">
+<text x="40" y="51" font-size="28" font-weight="700">Flowtest / 从源码到证据</text>
+<text x="40" y="81" font-size="16" fill="#72798d">控制状态、浏览器执行和证据存储，各有明确职责。</text>
+<rect x="40" y="136" width="300" height="120" rx="15" fill="#dddfea" />
+<rect x="40" y="130" width="300" height="120" rx="15" fill="#ffffff" stroke="#d7daea" />
+<text x="60" y="164" font-size="20" fill="#30364c" font-weight="700">Web 工作台</text>
 <text x="60" y="194" font-size="15" fill="#72798d" font-weight="400">React / Vite / CodeMirror</text>
-<text x="60" y="217" font-size="15" fill="#72798d" font-weight="400">Source, versions and evidence</text>
-<rect x="410" y="136" width="300" height="120" rx="15" fill="#dddfea"/>
-<rect x="410" y="130" width="300" height="120" rx="15" fill="#eaeaf8" stroke="#d7daea"/>
-<text x="430" y="164" font-size="20" fill="#30364c" font-weight="700">FastAPI control service</text>
-<text x="430" y="194" font-size="15" fill="#72798d" font-weight="400">Auth, project access, jobs</text>
-<text x="430" y="217" font-size="15" fill="#72798d" font-weight="400">Versions + environment snapshots</text>
-<rect x="780" y="136" width="300" height="120" rx="15" fill="#dddfea"/>
-<rect x="780" y="130" width="300" height="120" rx="15" fill="#ffffff" stroke="#d7daea"/>
+<text x="60" y="217" font-size="15" fill="#72798d" font-weight="400">源码、版本与运行证据</text>
+<rect x="410" y="136" width="300" height="120" rx="15" fill="#dddfea" />
+<rect x="410" y="130" width="300" height="120" rx="15" fill="#eaeaf8" stroke="#d7daea" />
+<text x="430" y="164" font-size="20" fill="#30364c" font-weight="700">FastAPI 控制服务</text>
+<text x="430" y="194" font-size="15" fill="#72798d" font-weight="400">认证、项目权限与任务编排</text>
+<text x="430" y="217" font-size="15" fill="#72798d" font-weight="400">版本 + 环境快照</text>
+<rect x="780" y="136" width="300" height="120" rx="15" fill="#dddfea" />
+<rect x="780" y="130" width="300" height="120" rx="15" fill="#ffffff" stroke="#d7daea" />
 <text x="800" y="164" font-size="20" fill="#30364c" font-weight="700">PostgreSQL</text>
-<text x="800" y="194" font-size="15" fill="#72798d" font-weight="400">Platform state + sessions</text>
-<text x="800" y="217" font-size="15" fill="#72798d" font-weight="400">Encrypted environment secrets</text>
-<path d="M340 190 H410" fill="none" stroke="#777cb3" stroke-width="2" marker-end="url(#arrow)" marker-start="url(#arrow)"/>
+<text x="800" y="194" font-size="15" fill="#72798d" font-weight="400">平台状态 + 登录会话</text>
+<text x="800" y="217" font-size="15" fill="#72798d" font-weight="400">加密的环境凭据</text>
+<path d="M340 190 H410" fill="none" stroke="#777cb3" stroke-width="2" marker-end="url(#arrow)" marker-start="url(#arrow)" />
 <text x="341" y="173" font-size="12" fill="#6569a5" font-weight="400">HTTP / WS</text>
-<path d="M710 190 H780" fill="none" stroke="#777cb3" stroke-width="2" marker-end="url(#arrow)" marker-start="url(#arrow)"/>
+<path d="M710 190 H780" fill="none" stroke="#777cb3" stroke-width="2" marker-end="url(#arrow)" marker-start="url(#arrow)" />
 <text x="719" y="173" font-size="12" fill="#6569a5" font-weight="400">asyncpg</text>
-<rect x="40" y="346" width="300" height="120" rx="15" fill="#dddfea"/>
-<rect x="40" y="340" width="300" height="120" rx="15" fill="#ffffff" stroke="#d7daea"/>
-<text x="60" y="374" font-size="20" fill="#30364c" font-weight="700">Private artifacts</text>
-<text x="60" y="404" font-size="15" fill="#72798d" font-weight="400">Host data directory</text>
-<text x="60" y="427" font-size="15" fill="#72798d" font-weight="400">Trace / screenshots / logs</text>
-<rect x="410" y="346" width="300" height="120" rx="15" fill="#dddfea"/>
-<rect x="410" y="340" width="300" height="120" rx="15" fill="#eaeaf8" stroke="#d7daea"/>
-<text x="430" y="374" font-size="20" fill="#30364c" font-weight="700">Trusted Node controller</text>
-<text x="430" y="404" font-size="15" fill="#72798d" font-weight="400">JSON protocol over stdio</text>
-<text x="430" y="427" font-size="15" fill="#72798d" font-weight="400">Docker lifecycle + runtime events</text>
-<path d="M560 250 V340" fill="none" stroke="#777cb3" stroke-width="2" marker-end="url(#arrow)" marker-start="url(#arrow)"/>
-<text x="574" y="301" font-size="12" fill="#6569a5" font-weight="400">commands / events</text>
-<path d="M410 222 H372 V300 H190 V340" fill="none" stroke="#777cb3" stroke-width="2" marker-end="url(#arrow)"/>
-<text x="51" y="288" font-size="12" fill="#6569a5" font-weight="400">authorized file access</text>
-<rect x="40" y="566" width="300" height="120" rx="15" fill="#dddfea"/>
-<rect x="40" y="560" width="300" height="120" rx="15" fill="#ffffff" stroke="#d7daea"/>
-<text x="60" y="594" font-size="20" fill="#30364c" font-weight="700">Recorder container</text>
+<rect x="40" y="346" width="300" height="120" rx="15" fill="#dddfea" />
+<rect x="40" y="340" width="300" height="120" rx="15" fill="#ffffff" stroke="#d7daea" />
+<text x="60" y="374" font-size="20" fill="#30364c" font-weight="700">私有工件</text>
+<text x="60" y="404" font-size="15" fill="#72798d" font-weight="400">宿主数据目录</text>
+<text x="60" y="427" font-size="15" fill="#72798d" font-weight="400">Trace / 截图 / 日志</text>
+<rect x="410" y="346" width="300" height="120" rx="15" fill="#dddfea" />
+<rect x="410" y="340" width="300" height="120" rx="15" fill="#eaeaf8" stroke="#d7daea" />
+<text x="430" y="374" font-size="20" fill="#30364c" font-weight="700">受信任的 Node 控制器</text>
+<text x="430" y="404" font-size="15" fill="#72798d" font-weight="400">通过 stdio 传递 JSON</text>
+<text x="430" y="427" font-size="15" fill="#72798d" font-weight="400">Docker 生命周期 + 运行事件</text>
+<path d="M560 250 V340" fill="none" stroke="#777cb3" stroke-width="2" marker-end="url(#arrow)" marker-start="url(#arrow)" />
+<text x="574" y="301" font-size="12" fill="#6569a5" font-weight="400">命令 / 事件</text>
+<path d="M410 222 H372 V300 H190 V340" fill="none" stroke="#777cb3" stroke-width="2" marker-end="url(#arrow)" />
+<text x="51" y="288" font-size="12" fill="#6569a5" font-weight="400">授权文件访问</text>
+<rect x="40" y="566" width="300" height="120" rx="15" fill="#dddfea" />
+<rect x="40" y="560" width="300" height="120" rx="15" fill="#ffffff" stroke="#d7daea" />
+<text x="60" y="594" font-size="20" fill="#30364c" font-weight="700">录制容器</text>
 <text x="60" y="624" font-size="15" fill="#72798d" font-weight="400">Playwright codegen + Inspector</text>
-<text x="60" y="647" font-size="15" fill="#72798d" font-weight="400">Chromium desktop over noVNC</text>
-<rect x="410" y="566" width="300" height="120" rx="15" fill="#dddfea"/>
-<rect x="410" y="560" width="300" height="120" rx="15" fill="#ffffff" stroke="#d7daea"/>
-<text x="430" y="594" font-size="20" fill="#30364c" font-weight="700">Runner container</text>
+<text x="60" y="647" font-size="15" fill="#72798d" font-weight="400">通过 noVNC 操作 Chromium</text>
+<rect x="410" y="566" width="300" height="120" rx="15" fill="#dddfea" />
+<rect x="410" y="560" width="300" height="120" rx="15" fill="#ffffff" stroke="#d7daea" />
+<text x="430" y="594" font-size="20" fill="#30364c" font-weight="700">运行容器</text>
 <text x="430" y="624" font-size="15" fill="#72798d" font-weight="400">Playwright Test + reporter</text>
-<text x="430" y="647" font-size="15" fill="#72798d" font-weight="400">Isolated per-run execution</text>
-<path d="M450 460 V503 H190 V560" fill="none" stroke="#777cb3" stroke-width="2" marker-end="url(#arrow)"/>
-<text x="219" y="493" font-size="12" fill="#6569a5" font-weight="400">record</text>
-<path d="M600 460 V560" fill="none" stroke="#777cb3" stroke-width="2" marker-end="url(#arrow)"/>
-<text x="612" y="518" font-size="12" fill="#6569a5" font-weight="400">run</text>
-<path d="M410 620 H372 V400 H340" fill="none" stroke="#777cb3" stroke-width="2" marker-end="url(#arrow)" stroke-dasharray="5 4"/>
-<text x="376" y="548" font-size="12" fill="#6569a5" font-weight="400">files</text>
-<rect x="780" y="496" width="300" height="190" rx="15" fill="#dddfea"/>
-<rect x="780" y="490" width="300" height="190" rx="15" fill="#ffffff" stroke="#d7daea"/>
-<text x="800" y="524" font-size="20" fill="#30364c" font-weight="700">Target websites + APIs</text>
-<text x="800" y="554" font-size="15" fill="#72798d" font-weight="400">Existing application under test</text>
-<text x="800" y="577" font-size="15" fill="#72798d" font-weight="400">Configured reachable origins</text>
-<text x="800" y="600" font-size="15" fill="#72798d" font-weight="400">UI + API setup / cleanup</text>
-<text x="800" y="623" font-size="15" fill="#72798d" font-weight="400">Not deployed by Flowtest</text>
-<path d="M710 620 H780" fill="none" stroke="#777cb3" stroke-width="2" marker-end="url(#arrow)"/>
-<path d="M190 680 V717 H930 V680" fill="none" stroke="#777cb3" stroke-width="2" marker-end="url(#arrow)" stroke-dasharray="5 4"/>
-<text x="437" y="739" font-size="12" fill="#6569a5" font-weight="400">configured network access</text>
-<text x="40" y="778" font-size="14" fill="#72798d" font-weight="400">Platform PostgreSQL is not a direct connection to the application database.</text>
+<text x="430" y="647" font-size="15" fill="#72798d" font-weight="400">每次运行独立执行</text>
+<path d="M450 460 V503 H190 V560" fill="none" stroke="#777cb3" stroke-width="2" marker-end="url(#arrow)" />
+<text x="219" y="493" font-size="12" fill="#6569a5" font-weight="400">录制</text>
+<path d="M600 460 V560" fill="none" stroke="#777cb3" stroke-width="2" marker-end="url(#arrow)" />
+<text x="612" y="518" font-size="12" fill="#6569a5" font-weight="400">运行</text>
+<path d="M410 620 H372 V400 H340" fill="none" stroke="#777cb3" stroke-width="2" marker-end="url(#arrow)" stroke-dasharray="5 4" />
+<text x="376" y="548" font-size="12" fill="#6569a5" font-weight="400">文件</text>
+<rect x="780" y="496" width="300" height="190" rx="15" fill="#dddfea" />
+<rect x="780" y="490" width="300" height="190" rx="15" fill="#ffffff" stroke="#d7daea" />
+<text x="800" y="524" font-size="20" fill="#30364c" font-weight="700">被测网站 + API</text>
+<text x="800" y="554" font-size="15" fill="#72798d" font-weight="400">已部署的被测应用</text>
+<text x="800" y="577" font-size="15" fill="#72798d" font-weight="400">配置可访问的目标地址</text>
+<text x="800" y="600" font-size="15" fill="#72798d" font-weight="400">UI + API 数据准备 / 清理</text>
+<text x="800" y="623" font-size="15" fill="#72798d" font-weight="400">由业务方部署和维护</text>
+<path d="M710 620 H780" fill="none" stroke="#777cb3" stroke-width="2" marker-end="url(#arrow)" />
+<path d="M190 680 V717 H930 V680" fill="none" stroke="#777cb3" stroke-width="2" marker-end="url(#arrow)" stroke-dasharray="5 4" />
+<text x="437" y="739" font-size="12" fill="#6569a5" font-weight="400">按配置访问目标网络</text>
+<text x="40" y="778" font-size="14" fill="#72798d" font-weight="400">PostgreSQL 存储平台数据；被测业务的数据校验通过其 API 完成。</text>
 </g></svg>

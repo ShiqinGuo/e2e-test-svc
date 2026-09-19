@@ -1,5 +1,6 @@
 """Render the Flowtest product story. Optional dependency: Pillow 12.1.0."""
 
+import argparse
 import math
 import os
 from functools import lru_cache
@@ -14,6 +15,57 @@ BLUE, SOFT, EDGE = "#6569CB", "#EAEAF8", "#DDDFEC"
 GREEN, GREEN_BG = "#28866D", "#E4F3EB"
 RED, RED_BG = "#B45B62", "#FAEBED"
 AMBER, AMBER_BG = "#946B30", "#F8EFDE"
+LANG = "en"
+ZH = {
+    "CONCEPT DEMO / SAMPLE DATA": "功能示意",
+    "Record. Replay. Keep the evidence.": "录制、重跑，保留每次证据。",
+    "Turn a real browser flow into a test.": "把浏览器操作，变成可重跑的业务测试。",
+    "Record interactions and assertions, or import a Playwright test.": "录制操作与断言，也可以导入已有的 Playwright 测试。",
+    "01 / CAPTURE THE FLOW": "01 / 录制业务流程",
+    "Sample application / Checkout": "示例应用 / 提交订单",
+    "Order reference": "订单备注",
+    "Submit": "提交",
+    "Order created": "订单已创建",
+    "Assert: visible confirmation": "断言：确认信息可见",
+    "PLAYWRIGHT SOURCE": "Playwright 源码",
+    "Save immutable version  v1": "保存固定版本 v1",
+    "Replay the same test. In the same context.": "重跑时，回到当时的版本与环境。",
+    "A historical rerun keeps its original source and environment snapshot.": "历史重跑保留原始源码与环境快照，后续修改不会改写过去。",
+    "02 / FREEZE THE CONTEXT": "02 / 固定版本与环境",
+    "SOURCE": "源码版本",
+    "Checkout / v1": "下单流程 / v1",
+    "actions + assertions": "操作 + 断言",
+    "ENVIRONMENT": "测试环境",
+    "Test site A": "测试站点 A",
+    "roles + variables": "角色 + 变量",
+    "RUN 001": "运行 001",
+    "v1 + site A": "v1 + 站点 A",
+    "snapshot saved": "快照已保存",
+    "Current edits: v2 + site B": "当前已修改：v2 + 站点 B",
+    "New edits leave past runs intact.": "新修改，不影响已有运行。",
+    "RERUN 002": "重跑 002",
+    "Same v1 + site A  /  new run record": "仍用 v1 + 站点 A / 新建运行记录",
+    "A green retry never erases the first failure.": "重试通过，也保留第一次失败。",
+    "Keep assertions, attempts and private Trace evidence attached to the run.": "沿每次尝试，查看断言、截图和 Trace，追查发生了什么。",
+    "03 / FOLLOW THE EVIDENCE": "03 / 沿证据定位问题",
+    "ATTEMPT 1": "第 1 次尝试",
+    "ATTEMPT 2": "第 2 次尝试",
+    "Assertion failed": "断言失败",
+    "Assertion passed": "断言通过",
+    "expected: visible": "期望：可见",
+    "actual: hidden": "实际：隐藏",
+    "actual: visible": "实际：可见",
+    "RUN SUMMARY": "运行汇总",
+    "Passed / flaky": "通过 / 曾有失败",
+    "First failure retained": "首次失败记录仍保留",
+    "Trace + screenshot": "Trace + 截图",
+    "Trace evidence": "查看 Trace",
+    "No assertions?  Unverified.  Not a silent pass.": "没有执行断言，则标记为「未验证」。",
+}
+
+
+def translate(text):
+    return ZH.get(text, text) if LANG == "zh-CN" else text
 
 
 def ease(v):
@@ -26,9 +78,10 @@ def spring(v):
 
 
 @lru_cache(None)
-def font(size, bold=False):
+def font(size, bold=False, language="en"):
     candidates = [
         os.environ.get("FLOWTEST_MEDIA_FONT", ""),
+        ("C:/Windows/Fonts/msyhbd.ttc" if bold else "C:/Windows/Fonts/msyh.ttc") if language == "zh-CN" else "",
         "C:/Windows/Fonts/seguisb.ttf" if bold else "C:/Windows/Fonts/segoeui.ttf",
         "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
         "/System/Library/Fonts/Supplemental/Arial.ttf",
@@ -66,7 +119,7 @@ class Canvas:
         self.d.line([(int(x * SCALE), int(y * SCALE)) for x, y in pts], fill=color, width=width * SCALE)
 
     def text(self, x, y, text, size=18, color=INK, bold=False):
-        self.d.text((int(x * SCALE), int(y * SCALE)), text, font=font(size, bold), fill=color)
+        self.d.text((int(x * SCALE), int(y * SCALE)), translate(text), font=font(size, bold, LANG), fill=color)
 
     def circle(self, x, y, radius, fill):
         self.d.ellipse(tuple(int(v * SCALE) for v in (x - radius, y - radius, x + radius, y + radius)), fill=fill)
@@ -77,7 +130,7 @@ class Canvas:
         self.rect((x, y, x + w, y + h), color, 18, edge)
 
     def pill(self, x, y, text, color=BLUE, bg=SOFT):
-        width = self.d.textlength(text, font=font(14)) / SCALE + 26
+        width = self.d.textlength(translate(text), font=font(14, True, LANG)) / SCALE + 26
         self.rect((x, y, x + width, y + 29), bg, 9)
         self.text(x + 13, y + 4, text, 14, color, True)
 
@@ -244,7 +297,7 @@ def main():
     durations = [80 if i % 3 else 90 for i in range(288)]
     durations[-1] = 1800
     frames[0].save(
-        ROOT / "flowtest.gif",
+        ROOT / f"flowtest-{LANG}.gif",
         save_all=True,
         append_images=frames[1:],
         duration=durations,
@@ -252,9 +305,13 @@ def main():
         optimize=True,
         disposal=1,
     )
-    frame(23).save(ROOT / "flowtest-poster.png")
-    print(f"Rendered {len(frames)} frames at {W} x {H}.")
+    frame(23).save(ROOT / f"flowtest-{LANG}-poster.png")
+    print(f"Rendered {LANG}: {len(frames)} frames at {W} x {H}.", flush=True)
 
 
 if __name__ == "__main__":
-    main()
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--lang", choices=("zh-CN", "en", "all"), default="all")
+    args = parser.parse_args()
+    for LANG in ("zh-CN", "en") if args.lang == "all" else (args.lang,):
+        main()

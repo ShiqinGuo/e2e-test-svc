@@ -4,9 +4,9 @@
 
 [English](README.en.md) · [简体中文](README.md) · [MIT](LICENSE)
 
-![Flowtest: record a flow, freeze its context, and retain failure evidence](docs/media/flowtest.gif)
+![Flowtest: record a flow, freeze its context, and retain failure evidence](docs/media/flowtest-en.gif)
 
-*Programmatic concept animation with synthetic data, not a screen recording. [Static alternative](docs/media/flowtest-poster.png).*
+[Static image](docs/media/flowtest-en-poster.png) · [Animation source](docs/media/README.md)
 
 Flowtest is a self-hosted Playwright workflow-testing platform. Record browser actions and assertions with the official codegen / Inspector, or import TypeScript tests written by you or an AI. No paid model account is required.
 
@@ -25,19 +25,19 @@ The complete product uses two repositories: [FastAPI backend + runtimes](https:/
 3. Start the workbench with `npm ci` and `npm run dev`; open `http://127.0.0.1:5173` and register your own account.
 4. Create a project and environment pointing to a website reachable from the runner, then create a group and scenario. Record or import a test, save a version, run it, and inspect assertions and Trace.
 
-The first setup downloads browser images and requires configuration. There is no hosted demo or shared login. A [local order fixture](https://github.com/ShiqinGuo/e2e-test-svc/blob/main/docs/development.md#验证) is available if you do not have a target website. Flowtest does not deploy the application under test.
+Try the [local order fixture](https://github.com/ShiqinGuo/e2e-test-svc/blob/main/docs/development.md#验证) if you do not have a target website. Flowtest does not deploy the application under test.
 
 ## Architecture
 
-![React, FastAPI, PostgreSQL and isolated Playwright containers](docs/media/architecture.svg)
+![React, FastAPI, PostgreSQL and isolated Playwright containers](docs/media/architecture.en.svg)
 
 The FastAPI service owns authentication, project authorization, immutable versions and run state. PostgreSQL stores platform data; private artifacts live in the API host data directory. A trusted Node controller starts Docker runner and recorder containers. Imported tests do not execute inside the API process. [Source map](docs/architecture.md).
 
-## Scope and evidence
+## Scope and verification
 
-The [backend acceptance record](https://github.com/ShiqinGuo/e2e-test-svc/blob/main/docs/acceptance.md) and [workbench acceptance index](https://github.com/ShiqinGuo/e2e-test-fronted/blob/main/docs/redesign-verification.md) describe local technical-fixture verification from September 13, 2026. API tests, real Docker/browser runs, UI flows and isolated component tests are distinguished. [This publication's checks](docs/publishing-verification.md) are recorded separately.
+Supports single-owner projects, containerized recording and execution, individual scenarios and test groups. Team membership, distributed execution and direct multi-database assertions are not included.
 
-There is no first real-business-site case study yet. Remote TLS/cross-host deployment, long-running reliability and backup recovery remain unverified. The initial platform uses single-owner projects; it does not provide team membership, a distributed execution queue or direct multi-database assertions.
+See the [backend acceptance record](https://github.com/ShiqinGuo/e2e-test-svc/blob/main/docs/acceptance.md) and [workbench acceptance index](https://github.com/ShiqinGuo/e2e-test-fronted/blob/main/docs/redesign-verification.md) for the tested flows and results.
 
 ## Development and license
 
