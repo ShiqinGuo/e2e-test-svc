@@ -21,5 +21,5 @@ class Database:
 
 
 async def get_session(request: Request) -> AsyncIterator[AsyncSession]:
-    async with request.app.state.db.sessions() as session:
+    async with request.app.state.context.db.sessions() as session:
         yield session

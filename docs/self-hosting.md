@@ -9,6 +9,7 @@
 | `E2E_DATABASE_URL` | PostgreSQL SQLAlchemy asyncpg DSN；从受限本地配置文件读取 |
 | `E2E_DATA_DIR` | 密钥、运行和录制工件的绝对持久化目录 |
 | `E2E_BASE_URL` | 用户访问的HTTPS平台地址 |
+| `E2E_APP_URL` | 前端公开地址，用于邀请链接；本地为 http://localhost:5173，生产为同源HTTPS地址 |
 | `E2E_COOKIE_SECURE` | HTTPS部署设置true |
 | `E2E_TRUSTED_ORIGINS` | JSON数组，明确允许的平台前端Origin |
 | `E2E_MAX_CONCURRENT_RUNS` | 同时执行的运行数，默认2 |
@@ -17,6 +18,10 @@
 | `E2E_SESSION_LIFETIME` | 数据库登录会话寿命秒数，默认604800 |
 
 前端静态资源与 `/api` 应放在同一个 HTTPS 域名。反向代理需支持 WebSocket，并对 `/api` 保留 Cookie 与 Origin。示例 Nginx片段（TLS证书配置由部署方提供）：
+
+终端用户只需浏览器，无需安装 Python、Node、Docker、Playwright 或桌面客户端。这些运行依赖只安装在服务器。录制器通过同源HTTP/WebSocket网关访问，远端容器地址和网关凭据不发给浏览器。公开站点的前端与API使用同一HTTPS域名，设置 `E2E_COOKIE_SECURE=true` 并将该域名加入 `E2E_TRUSTED_ORIGINS`；代理 `/api` 的 GET/POST/PATCH/DELETE 与 WebSocket。
+
+迁移 `0003` 把每位原项目owner的存量项目放入该用户的组织及默认工作区，保留全部项目/场景/版本/运行ID。先备份PostgreSQL与加密密钥，再停止旧API，运行 `uv run python -m app.migrations`，同时更新前后端。该版本不提供旧个人项目API兼容层；组织成员关系无法无损退回旧单owner结构，回退需要恢复迁移前备份。
 
 ```nginx
 map $http_upgrade $connection_upgrade {
@@ -46,4 +51,4 @@ server {
 
 停止服务时先让当前运行完成或在平台取消；关闭会终止活动容器。主机崩溃或强杀后，启动恢复会保留中断事实为error，不伪造重试通过，并按本数据库的运行/录制ID清理遗留容器和秘密输入文件。Docker不可用时会在错误说明保留清理失败，管理员恢复Docker后处理对应标签资源。数据库备份必须与 `data/encryption.key` 一起保存；没有密钥不能解密历史环境快照。备份/恢复流程未在远端部署演练，当前证明范围是本机真实PostgreSQL和Docker集成。
 
-历史版本和运行不提供删除API；初版不实现团队共享/成员管理、多API进程分布式队列、邮件验证/找回密码，以及完整工件保留策略。每项目由单owner管理，所有私有资源都核对该owner；这些边界在首版契约中明确。容量清理由管理员在停机备份后按实际保留需求实施，不能删失败记录来改变运行结论。
+历史版本和运行不提供删除API。组织成员与工作区共享已实现，所有私有资源按组织角色授权；尚未提供多API进程分布式队列、邮件验证/找回密码，以及完整工件保留策略。邀请链接不需要邮件服务。容量清理由管理员在停机备份后按实际保留需求实施，不能删失败记录来改变运行结论。

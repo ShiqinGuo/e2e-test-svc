@@ -6,10 +6,20 @@ license = "MIT"
 license-files = ["LICENSE"]
 requires-python = ">=3.12"
 dependencies = [
-  "fastapi>=0.135,<1", "uvicorn[standard]>=0.41,<1",
-  "fastapi-users[sqlalchemy]>=15,<16", "sqlalchemy[asyncio]>=2.0.48,<2.1",
-  "asyncpg>=0.31,<1", "alembic>=1.18,<2", "pydantic-settings>=2.13,<3",
-  "cryptography>=46,<48", "httpx>=0.28,<1", "websockets>=16,<17"
+  "fastapi>=0.135,<1",
+  "uvicorn[standard]>=0.41,<1",
+  "fastapi-users[sqlalchemy]>=15,<16",
+  "sqlalchemy[asyncio]>=2.0.48,<2.1",
+  "asyncpg>=0.31,<1",
+  "alembic>=1.18,<2",
+  "pydantic-settings>=2.13,<3",
+  "cryptography>=46,<48",
+  "httpx>=0.28,<1",
+  "websockets>=16,<17",
+  "opentelemetry-sdk>=1.44.0",
+  "opentelemetry-instrumentation-fastapi>=0.65b0",
+  "opentelemetry-instrumentation-sqlalchemy>=0.65b0",
+  "opentelemetry-instrumentation-httpx>=0.65b0",
 ]
 [dependency-groups]
 dev = [

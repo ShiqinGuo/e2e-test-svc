@@ -18,7 +18,7 @@ def main():
     args = parser.parse_args()
     files = []
     for pattern in (
-        "app/*.py",
+        "app/**/*.py",
         "src/runtime/*.ts",
         "runtime/bridge.ts",
         "runtime/runner/*.mjs",

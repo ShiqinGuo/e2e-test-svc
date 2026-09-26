@@ -47,7 +47,7 @@ uv run python tests/recorder_proxy_probe.py
 
 `target(id)` 是仅供服务端使用的 `{host:'127.0.0.1',port,token}`。上游 HTTP 和 WebSocket 必须注入 `x-recorder-token: <token>`。不要向前端返回这组数据或转发平台 Cookie、Authorization。前端拿到的是已认证同源 `viewerUrl`，应以 `/index.html` 结尾，或将目录 URL 规范化为带末尾 `/`。页面中的 `./viewer.js` 和 `./websockify` 使用相同目录前缀。
 
-主 API 只允许浏览器代理 `index.html`、`viewer.js`、`websockify`，并在每个 HTTP 请求及 WS 握手时核对当前会话、项目 owner 和录制归属。`/health`、`POST /stop` 是 Node 管理接口，不应反代给浏览器。WebSocket 断开及过期后不可重新连接。代理连接丢失时 noVNC 明确显示断开；Node 定期检查容器健康并持久化错误回调。
+主 API 只允许浏览器代理 `index.html`、`viewer.js`、`websockify`，并在每个 HTTP 请求及 WS 握手时核对当前会话、组织编辑权限和录制归属。viewer不能操作远程浏览器；连接期间每5秒复验，退出组织、被移除或降为viewer会断开。`/health`、`POST /stop` 是 Node 管理接口，不应反代给浏览器。过期后不可重新连接；普通网络断开后，仅会话、成员权限及录制状态仍有效时可以重连。代理连接丢失时 noVNC 明确显示断开；Node 定期检查容器健康并持久化错误回调。
 
 ## 容器隔离与环境绑定
 

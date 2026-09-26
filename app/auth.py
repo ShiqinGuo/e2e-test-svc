@@ -15,8 +15,9 @@ from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from .db import get_session
-from .errors import APIError
+from .errors import APIError, ErrorCode
 from .models import AccessToken, AuthAttempt, User, utcnow
+from .responses import AuthSession, Success
 from .schemas import Login, Register
 
 COOKIE = "e2e_session"
@@ -36,7 +37,7 @@ def components(session: AsyncSession, request):
     manager = UserManager(SQLAlchemyUserDatabase(session, User))
     strategy = DatabaseStrategy(
         SQLAlchemyAccessTokenDatabase(session, AccessToken),
-        lifetime_seconds=request.app.state.settings.session_lifetime,
+        lifetime_seconds=request.app.state.context.settings.session_lifetime,
     )
     return manager, strategy
 
@@ -57,7 +58,7 @@ async def resolve_user(request, session):
 async def current_user(request: Request, session: AsyncSession = Depends(get_session)):
     user = await resolve_user(request, session)
     if user is None:
-        raise APIError(401, "UNAUTHENTICATED", "Sign in to continue")
+        raise APIError(ErrorCode.UNAUTHENTICATED)
     return user
 
 
@@ -69,7 +70,7 @@ async def session_payload(request, session, user, token):
             "id": hashlib.sha256(token.encode()).hexdigest()[:32],
             "userId": str(user.id),
             "expiresAt": (
-                access.created_at + timedelta(seconds=request.app.state.settings.session_lifetime)
+                access.created_at + timedelta(seconds=request.app.state.context.settings.session_lifetime)
             ).isoformat(),
         },
     }
@@ -90,8 +91,8 @@ async def throttle(request, session, email):
     ).returning(AuthAttempt.count)
     count = await session.scalar(statement)
     await session.commit()
-    if count > request.app.state.settings.auth_rate_limit:
-        raise APIError(429, "RATE_LIMITED", "Too many authentication attempts; retry in five minutes")
+    if count > request.app.state.context.settings.auth_rate_limit:
+        raise APIError(ErrorCode.RATE_LIMITED)
 
 
 router = APIRouter(prefix="/api/auth", tags=["Authentication"])
@@ -103,36 +104,36 @@ async def login_response(request, session, user, status):
     response = JSONResponse(await session_payload(request, session, user, token), status_code=status)
     cookie_response = await CookieTransport(
         cookie_name=COOKIE,
-        cookie_max_age=request.app.state.settings.session_lifetime,
-        cookie_secure=request.app.state.settings.cookie_secure,
+        cookie_max_age=request.app.state.context.settings.session_lifetime,
+        cookie_secure=request.app.state.context.settings.cookie_secure,
         cookie_samesite="lax",
     ).get_login_response(token)
     response.headers.append("set-cookie", cookie_response.headers["set-cookie"])
     return response
 
 
-@router.post("/sign-up/email", status_code=201)
+@router.post("/sign-up/email", status_code=201, response_model=AuthSession)
 async def register(body: Register, request: Request, session: AsyncSession = Depends(get_session)):
     await throttle(request, session, body.email)
     manager, _ = components(session, request)
     try:
         user = await manager.create(UserCreate(**body.model_dump()), safe=True, request=request)
     except exceptions.UserAlreadyExists as exc:
-        raise APIError(409, "USER_ALREADY_EXISTS", "An account with this email already exists") from exc
+        raise APIError(ErrorCode.USER_ALREADY_EXISTS) from exc
     return await login_response(request, session, user, 201)
 
 
-@router.post("/sign-in/email")
+@router.post("/sign-in/email", response_model=AuthSession)
 async def login(body: Login, request: Request, session: AsyncSession = Depends(get_session)):
     await throttle(request, session, body.email)
     manager, _ = components(session, request)
     user = await manager.authenticate(OAuth2PasswordRequestForm(username=body.email, password=body.password, scope=""))
     if not user or not user.is_active:
-        raise APIError(401, "INVALID_CREDENTIALS", "Invalid email or password")
+        raise APIError(ErrorCode.INVALID_CREDENTIALS)
     return await login_response(request, session, user, 200)
 
 
-@router.get("/get-session")
+@router.get("/get-session", response_model=AuthSession | None)
 async def get_current_session(request: Request, session: AsyncSession = Depends(get_session)):
     user = await resolve_user(request, session)
     if user is None:
@@ -140,12 +141,14 @@ async def get_current_session(request: Request, session: AsyncSession = Depends(
     return await session_payload(request, session, user, request.cookies[COOKIE])
 
 
-@router.post("/sign-out")
+@router.post("/sign-out", response_model=Success)
 async def logout(request: Request, session: AsyncSession = Depends(get_session)):
     user = await resolve_user(request, session)
     if user:
         _, strategy = components(session, request)
         await strategy.destroy_token(request.cookies[COOKIE], user)
     response = JSONResponse({"success": True})
-    response.delete_cookie(COOKIE, secure=request.app.state.settings.cookie_secure, httponly=True, samesite="lax")
+    response.delete_cookie(
+        COOKIE, secure=request.app.state.context.settings.cookie_secure, httponly=True, samesite="lax"
+    )
     return response

@@ -144,7 +144,7 @@ class StubRuntime:
 
 
 @pytest_asyncio.fixture
-async def database_settings(tmp_path: Path):
+async def database_settings(tmp_path: Path, request):
     """Each test gets a schema and real migrations; no SQLite approximation."""
     settings = Settings()
     assert settings.database_url.startswith("postgresql"), "API isolation tests require PostgreSQL"
@@ -161,7 +161,7 @@ async def database_settings(tmp_path: Path):
         }
     )
     try:
-        await asyncio.to_thread(migrate, settings)
+        await asyncio.to_thread(migrate, settings, getattr(request, "param", "head"))
         yield settings
     finally:
         async with admin.begin() as connection:
@@ -225,8 +225,17 @@ class Resources:
 
 
 async def seed(client: httpx.AsyncClient, name: str = "fixture") -> Resources:
+    organization = await expect_response(client, "POST", f"{API}/organizations", 201, json={"name": name})
     project = await expect_response(
-        client, "POST", f"{API}/projects", 201, json={"name": name, "description": "Isolated integration fixture"}
+        client,
+        "POST",
+        f"{API}/projects",
+        201,
+        json={
+            "name": name,
+            "description": "Isolated integration fixture",
+            "workspaceId": organization["defaultWorkspaceId"],
+        },
     )
     root = f"{API}/projects/{project['id']}"
     group = await expect_response(client, "POST", f"{root}/groups", 201, json={"name": "Checkout"})
@@ -329,7 +338,9 @@ async def test_authentication_cookie_lifecycle(api: Any) -> None:
     anonymous, alice, bob, _runtime = api
     assert await expect_response(anonymous, "GET", "/api/health") == {"status": "ok"}
     published = await expect_response(anonymous, "GET", "/api/openapi.json")
-    assert published["components"]["schemas"]["Run"]["properties"]["environmentSnapshot"]
+    run_response = published["paths"]["/api/v1/projects/{projectId}/runs/{runId}"]["get"]["responses"]["200"]
+    model = run_response["content"]["application/json"]["schema"]["$ref"].rsplit("/", 1)[-1]
+    assert published["components"]["schemas"][model]["properties"]["environmentSnapshot"]
     assert published["components"]["securitySchemes"]["sessionCookie"]["name"] == "e2e_session"
     await expect_response(alice, "GET", f"{API}/capabilities")
     result = await expect_response(anonymous, "GET", f"{API}/me", 401)
@@ -430,8 +441,12 @@ async def test_every_project_resource_is_authorized_by_server(api: Any) -> None:
         ]
         for method, path, payload in writes:
             await expect_hidden(client, method, path, json=payload)
-    assert (await expect_response(alice, "GET", f"{API}/projects"))["total"] == 1
-    assert (await expect_response(bob, "GET", f"{API}/projects"))["items"][0]["id"] == foreign.project["id"]
+    assert (await expect_response(alice, "GET", f"{API}/projects?workspaceId={own.project['workspaceId']}"))[
+        "total"
+    ] == 1
+    assert (await expect_response(bob, "GET", f"{API}/projects?workspaceId={foreign.project['workspaceId']}"))["items"][
+        0
+    ]["id"] == foreign.project["id"]
     for path in (root, f"{root}/runs/{run['id']}", f"{root}/recordings/{recording['id']}"):
         await expect_response(anonymous, "GET", path, 401)
 
@@ -562,9 +577,13 @@ async def test_pagination_origin_and_run_validation(api: Any) -> None:
     _anonymous, alice, _bob, _runtime = api
     resources = await seed(alice)
     for query in ("limit=0", "limit=101", "limit=-1", "limit=bad", "offset=-1", "offset=bad"):
-        result = await expect_response(alice, "GET", f"{API}/projects?{query}", 400)
+        result = await expect_response(
+            alice, "GET", f"{API}/projects?workspaceId={resources.project['workspaceId']}&{query}", 400
+        )
         assert result["error"]["code"] == "VALIDATION_ERROR"
-    page = await expect_response(alice, "GET", f"{API}/projects?limit=1&offset=1")
+    page = await expect_response(
+        alice, "GET", f"{API}/projects?workspaceId={resources.project['workspaceId']}&limit=1&offset=1"
+    )
     assert page == {"items": [], "total": 1, "limit": 1, "offset": 1}
     forbidden = await expect_response(
         alice,
@@ -576,7 +595,12 @@ async def test_pagination_origin_and_run_validation(api: Any) -> None:
     )
     assert forbidden["error"]["code"]
     await expect_response(
-        alice, "POST", f"{API}/projects", 201, headers={"Origin": "http://localhost:5173"}, json={"name": "Trusted UI"}
+        alice,
+        "POST",
+        f"{API}/projects",
+        201,
+        headers={"Origin": "http://localhost:5173"},
+        json={"name": "Trusted UI", "workspaceId": resources.project["workspaceId"]},
     )
     for body in (
         {"environmentId": resources.environment["id"]},

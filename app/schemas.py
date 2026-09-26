@@ -5,6 +5,8 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator, model_validator
 
+from .domain import OrganizationRole
+
 
 class Input(BaseModel):
     model_config = ConfigDict(extra="forbid", str_strip_whitespace=False)
@@ -24,6 +26,35 @@ class Login(Input):
 class ProjectInput(Input):
     name: str = Field(min_length=1, max_length=200)
     description: str = Field(default="", max_length=4000)
+
+
+class ProjectCreate(ProjectInput):
+    workspaceId: UUID
+
+
+class TenantName(Input):
+    name: str = Field(min_length=1, max_length=200)
+
+    @field_validator("name")
+    @classmethod
+    def nonblank(cls, value: str) -> str:
+        value = value.strip()
+        if not value:
+            raise ValueError("Name cannot be blank")
+        return value
+
+
+class MemberRoleInput(Input):
+    role: OrganizationRole
+
+
+class InvitationInput(Input):
+    email: EmailStr
+    role: Literal["admin", "member", "viewer"]
+
+
+class InvitationToken(Input):
+    token: str = Field(min_length=32, max_length=256)
 
 
 class ProjectPatch(Input):
@@ -106,6 +137,8 @@ class ApiAction(Input):
 def validate_bases(value):
     for key, url in value.items():
         parsed = urlparse(url)
+        # urllib defers invalid port validation until this property is accessed.
+        parsed.port
         if not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_-]*", key):
             raise ValueError("Invalid named base key")
         if (

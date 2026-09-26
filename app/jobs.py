@@ -5,28 +5,42 @@ from pathlib import Path
 
 from sqlalchemy import select
 
+from .domain import TERMINAL_RUNS
 from .models import Artifact, Resource, RunEvent
+from .observability import Event, emit
+from .responses import RunSummary
+from .runtime import RunResult
 from .security import redact, secrets_of
 from .store import timestamp, update_resource
 
-TERMINAL = {"passed", "failed", "cancelled", "timed_out", "error"}
-SUMMARY = {"total": 0, "passed": 0, "failed": 0, "skipped": 0, "flaky": 0, "unverified": 0}
+TERMINAL = TERMINAL_RUNS
+SUMMARY = RunSummary(total=0, passed=0, failed=0, skipped=0, flaky=0, unverified=0).model_dump()
 
 
 class Jobs:
-    def __init__(self, app):
-        self.app = app
+    def __init__(self, settings, db, vault, runtime):
+        self.settings, self.db, self.vault, self.runtime = settings, db, vault, runtime
         self.tasks = {}
-        self.slots = asyncio.Semaphore(app.state.settings.max_concurrent_runs)
+        self.slots = asyncio.Semaphore(settings.max_concurrent_runs)
 
     def schedule(self, ident):
-        task = asyncio.create_task(self.execute(ident))
-        self.tasks[str(ident)] = task
-        task.add_done_callback(lambda _: self.tasks.pop(str(ident), None))
+        self.track(str(ident), self.execute(ident))
+
+    def track(self, key, coroutine):
+        task = asyncio.create_task(coroutine)
+        self.tasks[key] = task
+
+        def completed(finished):
+            self.tasks.pop(key, None)
+            if not finished.cancelled() and (error := finished.exception()) is not None:
+                emit(Event.BACKGROUND_FAILED, task=key, errorType=type(error).__name__)
+
+        task.add_done_callback(completed)
+        return task
 
     async def recover(self):
         interrupted = []
-        async with self.app.state.db.sessions() as session:
+        async with self.db.sessions() as session:
             rows = (await session.scalars(select(Resource).where(Resource.kind.in_(["run", "recording"])))).all()
             for row in rows:
                 if row.kind == "run" and row.body["status"] in {"queued", "running"}:
@@ -44,7 +58,7 @@ class Jobs:
                             run_id=row.id, type="run.error", timestamp=timestamp(), data={"code": "PROCESS_INTERRUPTED"}
                         )
                     )
-                if row.kind == "recording" and row.body["status"] in {"starting", "ready"}:
+                if row.kind == "recording" and row.body["status"] in {"starting", "ready", "stopping"}:
                     interrupted.append(("recording", str(row.id)))
                     update_resource(
                         row,
@@ -55,12 +69,12 @@ class Jobs:
                         },
                     )
             await session.commit()
-        if interrupted and hasattr(self.app.state.runtime, "recover"):
+        if interrupted:
             try:
-                await self.app.state.runtime.recover(interrupted)
+                await self.runtime.recover(interrupted)
             except Exception:
                 # Persistent interruption is already visible. Preserve an actionable cleanup failure as well.
-                async with self.app.state.db.sessions() as session:
+                async with self.db.sessions() as session:
                     for kind, ident in interrupted:
                         row = await session.get(Resource, uuid.UUID(ident), with_for_update=True)
                         update_resource(
@@ -72,21 +86,21 @@ class Jobs:
         async with self.slots:
             env = {}
             try:
-                async with self.app.state.db.sessions() as session:
+                async with self.db.sessions() as session:
                     row = await session.get(Resource, ident, with_for_update=True)
                     if row.body["status"] in TERMINAL:
                         return
                     update_resource(row, {"status": "running", "startedAt": timestamp()})
                     body = copy.deepcopy(row.body)
                     await session.commit()
-                env = self.app.state.vault.open(body["encryptedEnvironment"])
-                work_dir = self.app.state.settings.data_dir / "runs" / str(ident)
-                work_dir.mkdir(parents=True, exist_ok=True)
+                env = self.vault.open(body["encryptedEnvironment"])
+                work_dir = self.settings.data_dir / "runs" / str(ident)
+                await asyncio.to_thread(work_dir.mkdir, parents=True, exist_ok=True)
                 secrets = secrets_of(env)
 
                 async def emit(event):
                     safe = redact(event, secrets)
-                    async with self.app.state.db.sessions() as session:
+                    async with self.db.sessions() as session:
                         session.add(
                             RunEvent(
                                 run_id=ident,
@@ -98,7 +112,7 @@ class Jobs:
                         await session.commit()
 
                 await emit({"type": "run.started", "timestamp": timestamp(), "data": {"runId": str(ident)}})
-                result = await self.app.state.runtime.run(
+                result = await self.runtime.run(
                     {
                         "id": str(ident),
                         "projectId": body["projectId"],
@@ -108,10 +122,13 @@ class Jobs:
                         "role": body["role"],
                         "retries": body["retries"],
                         "timeoutMs": body["timeoutMs"],
-                        "platformOrigins": self.app.state.settings.trusted_origins + [self.app.state.settings.base_url],
+                        "platformOrigins": self.settings.trusted_origins + [self.settings.base_url],
                     },
                     emit,
                 )
+                result = RunResult.model_validate(result).model_dump(mode="json")
+                if result["status"] not in TERMINAL:
+                    raise ValueError("Runtime returned a nonterminal run result")
                 await self.finish(ident, result, work_dir, secrets)
             except asyncio.CancelledError:
                 raise
@@ -131,16 +148,16 @@ class Jobs:
 
     async def finish(self, ident, result, work_dir, secrets):
         safe = redact({k: v for k, v in result.items() if k != "artifacts"}, secrets)
-        async with self.app.state.db.sessions() as session:
+        async with self.db.sessions() as session:
             row = await session.get(Resource, ident, with_for_update=True)
             if row.body["status"] == "cancelled":
                 safe["status"] = "cancelled"
             update_resource(
                 row,
                 {
-                    "status": safe.get("status", "error"),
-                    "verification": safe.get("verification", "pending"),
-                    "summary": safe.get("summary", SUMMARY),
+                    "status": safe["status"],
+                    "verification": safe["verification"],
+                    "summary": safe["summary"],
                     "error": safe.get("error"),
                     "finishedAt": timestamp(),
                 },
@@ -179,7 +196,7 @@ class Jobs:
             await session.commit()
 
     async def close(self):
-        await self.app.state.runtime.close()
+        await self.runtime.close()
         tasks = list(self.tasks.values())
         if tasks:
             done, pending = await asyncio.wait(tasks, timeout=5)

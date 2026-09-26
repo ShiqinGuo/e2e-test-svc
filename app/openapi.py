@@ -1,87 +1,51 @@
-"""Merge actual FastAPI request models with the reviewed response contract.
+"""Generate the contract from executable request and response models."""
 
-Request models use a namespace because Role is an input model while the public
-Role response deliberately contains only redacted credential-presence flags.
-"""
-
-from __future__ import annotations
-
-import copy
-import json
 from pathlib import Path
 from typing import Any
 
 from fastapi import FastAPI
 from fastapi.openapi.utils import get_openapi
 
+from .responses import AuthError, ErrorResponse
+
 CONTRACT = Path(__file__).resolve().parents[1] / "docs" / "openapi.json"
 METHODS = {"get", "post", "put", "patch", "delete", "options", "head"}
 
 
-def _rewrite_request_refs(value: Any) -> Any:
-    if isinstance(value, list):
-        return [_rewrite_request_refs(item) for item in value]
-    if isinstance(value, dict):
-        return {
-            key: item.replace("#/components/schemas/", "#/components/schemas/Request", 1)
-            if key == "$ref" and isinstance(item, str) and item.startswith("#/components/schemas/")
-            else _rewrite_request_refs(item)
-            for key, item in value.items()
-        }
-    return value
-
-
 def build_openapi(app: FastAPI) -> dict[str, Any]:
-    reviewed = json.loads(CONTRACT.read_text(encoding="utf-8"))
-    actual = _rewrite_request_refs(get_openapi(title=app.title, version=app.version, routes=app.routes))
-    document = copy.deepcopy(reviewed)
-    document["openapi"] = "3.1.0"
-    document["paths"] = {}
-    document["components"]["schemas"] = {
-        name: schema for name, schema in document["components"]["schemas"].items() if not name.startswith("Request")
+    document = get_openapi(title=app.title, version=app.version, routes=app.routes)
+    schemas = document.setdefault("components", {}).setdefault("schemas", {})
+    for model in (AuthError, ErrorResponse):
+        schema = model.model_json_schema(ref_template="#/components/schemas/{model}")
+        schemas.update(schema.pop("$defs", {}))
+        schemas[model.__name__] = schema
+    document["components"]["securitySchemes"] = {
+        "sessionCookie": {"type": "apiKey", "in": "cookie", "name": "e2e_session"}
     }
-    document["components"]["schemas"].update(
-        {f"Request{name}": schema for name, schema in actual.get("components", {}).get("schemas", {}).items()}
-    )
-    run = document["components"]["schemas"]["Run"]
-    run["properties"]["rerunOf"] = {
-        "type": "string",
-        "description": "Original run identifier when replaying its pinned versions and environment snapshot.",
-    }
-    run["properties"]["sourceRunId"] = {"type": "string", "description": "Compatibility alias of rerunOf."}
-    for path, path_item in actual["paths"].items():
-        document["paths"][path] = {}
-        for method, actual_operation in path_item.items():
+    for path, item in document["paths"].items():
+        for method, operation in item.items():
             if method not in METHODS:
-                document["paths"][path][method] = actual_operation
                 continue
-            template = reviewed["paths"].get(path, {}).get(method)
-            if template is None and path.endswith("/runs/{runId}/rerun") and method == "post":
-                template = copy.deepcopy(reviewed["paths"]["/api/v1/projects/{projectId}/runs"]["post"])
-                template.update(
-                    operationId="rerunRun",
-                    summary="Create an independent run from the original immutable input snapshot",
-                    description="Copies the original pinned scenario versions, role, settings and environment snapshot. Subsequent scenario or environment edits do not affect this replay.",
-                )
-            if template is None:
-                raise ValueError(f"Document the success and error response schemas for {method.upper()} {path}")
-            operation = copy.deepcopy(template)
-            for key in ("parameters", "requestBody"):
-                if key in actual_operation:
-                    operation[key] = actual_operation[key]
-                else:
-                    operation.pop(key, None)
-            # RequestValidationError is normalized to the documented 400 body.
             operation["responses"].pop("422", None)
-            if path.endswith("/runs/{runId}/trace"):
-                operation["responses"].pop("200", None)
-                operation["responses"]["307"] = {
-                    "description": "Navigate to the same-origin, cookie-authorized official Trace Viewer.",
-                    "headers": {"Location": {"required": True, "schema": {"type": "string"}}},
+            error_model = "AuthError" if path.startswith("/api/auth/") else "ErrorResponse"
+            for status in (400, 401, 403, 404, 409, 413, 429, 503):
+                operation["responses"][str(status)] = {
+                    "description": "Explicit request, authorization, conflict or availability error",
+                    "content": {"application/json": {"schema": {"$ref": f"#/components/schemas/{error_model}"}}},
                 }
-            document["paths"][path][method] = operation
-    # FastAPI hides its own schema endpoint from generated operations.
-    document["paths"]["/api/openapi.json"] = reviewed["paths"]["/api/openapi.json"]
+            if path.startswith("/api/v1/") and path != "/api/v1/invitations/preview":
+                operation["security"] = [{"sessionCookie": []}]
+    document["paths"]["/api/openapi.json"] = {
+        "get": {
+            "operationId": "getOpenApi",
+            "responses": {
+                "200": {
+                    "description": "Generated API contract",
+                    "content": {"application/json": {"schema": {"type": "object"}}},
+                }
+            },
+        }
+    }
     return document
 
 

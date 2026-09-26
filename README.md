@@ -93,7 +93,7 @@ FastAPI 拥有账号、项目权限、版本和运行记录；PostgreSQL 保存�
 <a id="verification"></a>
 ## 当前范围与验证
 
-支持项目单 owner、容器执行与录制、单场景和分组测试。团队协作、分布式队列和多数据库直连尚未提供。
+支持浏览器直接使用、组织与工作区、邮箱绑定邀请、owner/admin/member/viewer角色，以及容器执行与录制、单场景和分组测试。用户无需安装客户端。分布式队列和多数据库直连尚未提供；多租户权限与迁移验证见 [Web RBAC记录](docs/web-rbac-verification.md)。
 
 本地验收覆盖 PostgreSQL、Docker Chromium、Web 录制、快照重跑及运行证据，详细结果见 [后端验收](docs/acceptance.md) 和 [前端验收](https://github.com/ShiqinGuo/e2e-test-fronted/blob/main/docs/redesign-verification.md)。
 

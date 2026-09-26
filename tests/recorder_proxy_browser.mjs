@@ -18,7 +18,8 @@ let recordingUrl;
 try {
   for (const [name, context] of [['Owner', owner], ['Other', other]])
     await api(context, 'POST', '/api/auth/sign-up/email', { name, email: `${randomUUID()}@example.com`, password: `probe-${randomUUID()}` });
-  const project = await api(owner, 'POST', '/api/v1/projects', { name: 'Real noVNC proxy probe' });
+  const organization = await api(owner, 'POST', '/api/v1/organizations', { name: 'Real noVNC proxy probe' });
+  const project = await api(owner, 'POST', '/api/v1/projects', { name: 'Real noVNC proxy probe', workspaceId: organization.defaultWorkspaceId });
   const root = `/api/v1/projects/${project.id}`;
   const env = await api(owner, 'POST', `${root}/environments`, { name: 'Isolated fixture', websites: { main: fixture }, apiBases: {} });
   const recording = await api(owner, 'POST', `${root}/recordings`, { environmentId: env.id, website: 'main' });

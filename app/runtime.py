@@ -5,8 +5,48 @@ import hashlib
 import json
 import os
 import uuid
+from typing import Any, Protocol
+
+from pydantic import BaseModel, ConfigDict
 
 from .config import ROOT, Settings
+from .domain import RunStatus, Verification
+from .responses import RunSummary, RuntimeAvailability
+from .schemas import Check
+
+
+class RuntimePort(Protocol):
+    async def available(self) -> dict: ...
+    async def run(self, input: dict, emit: Any) -> dict: ...
+    async def cancel(self, ident: str) -> Any: ...
+    async def recording_start(self, input: dict) -> Any: ...
+    async def recording_read(self, ident: str) -> dict: ...
+    async def recording_stop(self, ident: str) -> dict: ...
+    async def recording_target(self, ident: str) -> dict | None: ...
+    async def recover(self, interrupted: list[tuple[str, str]]) -> None: ...
+    async def close(self) -> None: ...
+
+
+class RuntimeArtifact(BaseModel):
+    path: str
+    name: str
+    contentType: str
+    kind: str
+
+
+class RunResult(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    status: RunStatus
+    verification: Verification
+    summary: RunSummary
+    error: str | None = None
+    artifacts: list[RuntimeArtifact]
+
+
+class RecordingResult(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    code: str
+    checks: list[Check]
 
 
 class Runtime:
@@ -52,17 +92,18 @@ class Runtime:
                 stderr=asyncio.subprocess.PIPE,
                 limit=4 * 1024 * 1024,
             )
-            self.reader = asyncio.create_task(self._read())
+            self.reader = asyncio.create_task(self._read(self.process))
             # Controller errors cannot leak credentials into API logs; error responses carry bounded safe messages.
-            self.stderr = asyncio.create_task(self._drain_stderr())
+            self.stderr = asyncio.create_task(self._drain_stderr(self.process))
 
-    async def _drain_stderr(self):
-        while await self.process.stderr.read(65536):
+    async def _drain_stderr(self, process):
+        while await process.stderr.read(65536):
             pass
 
-    async def _read(self):
+    async def _read(self, process):
+        failure = RuntimeError("Runtime controller disconnected")
         try:
-            async for line in self.process.stdout:
+            async for line in process.stdout:
                 message = json.loads(line)
                 ident = message.get("id")
                 if "event" in message and ident in self.events:
@@ -73,13 +114,19 @@ class Runtime:
                         if "error" in message:
                             future.set_exception(RuntimeError(message["error"]))
                         else:
-                            future.set_result(message.get("result"))
-        except (ValueError, OSError):
-            pass
+                            future.set_result(message["result"])
+        except Exception as exc:
+            # Stop a broken protocol reader; subsequent operations need a fresh controller.
+            # Do not include raw frames, which can contain environment credentials.
+            failure = RuntimeError("Runtime protocol or event persistence failed")
+            failure.__cause__ = exc
         finally:
             for future in self.pending.values():
                 if not future.done():
-                    future.set_exception(RuntimeError("Runtime controller disconnected"))
+                    future.set_exception(failure)
+            if process.returncode is None:
+                process.kill()
+                await process.wait()
 
     async def _call(self, op, input=None, emit=None, timeout=120):
         await self._ensure()
@@ -89,7 +136,9 @@ class Runtime:
         if emit:
             self.events[ident] = emit
         try:
-            self.process.stdin.write((json.dumps({"id": ident, "op": op, "input": input or {}}) + "\n").encode())
+            self.process.stdin.write(
+                (json.dumps({"id": ident, "op": op, "input": {} if input is None else input}) + "\n").encode()
+            )
             await self.process.stdin.drain()
             return await asyncio.wait_for(future, timeout)
         finally:
@@ -98,12 +147,13 @@ class Runtime:
 
     async def available(self):
         try:
-            return await self._call("available", timeout=20)
-        except Exception:
+            result = await self._call("available", timeout=20)
+        except (OSError, TimeoutError, RuntimeError):
             return {
                 "runner": {"available": False, "reason": "Build Playwright runtime images and check Docker"},
                 "recorder": {"available": False, "reason": "Build Playwright runtime images and check Docker"},
             }
+        return RuntimeAvailability.model_validate(result).model_dump(exclude_none=True)
 
     async def run(self, input, emit):
         return await self._call("run", input, emit, timeout=input["timeoutMs"] / 1000 + 180)
@@ -127,7 +177,7 @@ class Runtime:
         if self.process and self.process.returncode is None:
             try:
                 await self._call("close", timeout=60)
-            except Exception:
+            except (OSError, TimeoutError, RuntimeError):
                 pass
             self.process.stdin.close()
             try:
@@ -138,6 +188,7 @@ class Runtime:
         for task in (self.reader, self.stderr):
             if task:
                 task.cancel()
+        await asyncio.gather(*(task for task in (self.reader, self.stderr) if task), return_exceptions=True)
 
     async def recover(self, interrupted):
         """Remove only resources derived from this database's interrupted records."""

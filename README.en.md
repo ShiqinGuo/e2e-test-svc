@@ -35,7 +35,7 @@ The FastAPI service owns authentication, project authorization, immutable versio
 
 ## Scope and verification
 
-Supports single-owner projects, containerized recording and execution, individual scenarios and test groups. Team membership, distributed execution and direct multi-database assertions are not included.
+Supports browser-based use, organizations and workspaces, email-bound invitation links, owner/admin/member/viewer roles, containerized recording and execution, individual scenarios and test groups. End users do not install a client. Distributed execution and direct multi-database assertions are not included. See the [Web RBAC verification record](docs/web-rbac-verification.md).
 
 See the [backend acceptance record](https://github.com/ShiqinGuo/e2e-test-svc/blob/main/docs/acceptance.md) and [workbench acceptance index](https://github.com/ShiqinGuo/e2e-test-fronted/blob/main/docs/redesign-verification.md) for the tested flows and results.
 

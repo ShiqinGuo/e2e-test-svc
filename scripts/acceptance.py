@@ -53,7 +53,15 @@ async def main():
                 "password": secrets.token_urlsafe(30),
             },
         )
-        project = await call("POST", "/api/v1/projects", 201, json={"name": "Technical runtime API acceptance"})
+        organization = await call(
+            "POST", "/api/v1/organizations", 201, json={"name": "Technical runtime API acceptance"}
+        )
+        project = await call(
+            "POST",
+            "/api/v1/projects",
+            201,
+            json={"name": "Technical runtime API acceptance", "workspaceId": organization["defaultWorkspaceId"]},
+        )
         prefix = f"/api/v1/projects/{project['id']}"
         scenario = await call("POST", prefix + "/scenarios", 201, json={"name": "UI creates order, API checks same ID"})
         version = await call(
